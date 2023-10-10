@@ -57,6 +57,26 @@ This project involves creating intelligent agents for the classic Pacman game, d
   - Implement algorithms recursively.
   - Be mindful of evaluating states and considering both optimal and suboptimal adversary behaviors.
 
+### Useful Commands:
+python3 pacman.py
+
+python3 pacman.py -p ReflexAgent
+
+python3 pacman.py -p ReflexAgent -l testClassic
+
+python3 autograder.py -q q1
+
+
+
+python3 autograder.py -q q2
+
+python3 autograder.py -q q2 --no-graphics
+
+python3 pacman.py -p MinimaxAgent -l minimaxClassic -a depth=4
+
+python3 pacman.py -p MinimaxAgent -l trappedClassic -a depth=3
+
+
 ## Conclusion
 
 The project provides a practical exploration into developing intelligent agents within a gaming context, offering hands-on experience in utilizing search algorithms and heuristics to navigate and make informed decisions within a multi-agent system, exemplified by the interactions between Pacman and its ghost adversaries.
