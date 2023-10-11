@@ -66,6 +66,10 @@ python3 pacman.py -p ReflexAgent -l testClassic
 
 python3 autograder.py -q q1
 
+python3 autograder.py -q q1 --no-graphics
+
+python3 submission_autograder.py
+
 
 
 python3 autograder.py -q q2
@@ -75,6 +79,10 @@ python3 autograder.py -q q2 --no-graphics
 python3 pacman.py -p MinimaxAgent -l minimaxClassic -a depth=4
 
 python3 pacman.py -p MinimaxAgent -l trappedClassic -a depth=3
+
+
+python3 autograder.py -q q5 --no-graphics
+
 
 
 ## Conclusion
