@@ -75,44 +75,41 @@ class ReflexAgent(Agent):
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
         "*** YOUR CODE HERE ***"
-        def get_min_food_distance(newPos, newFood):
-            foodList = newFood.asList()
-            if foodList:
-                allFoodDistances = [manhattanDistance(newPos, food) for food in foodList]
-                return min(allFoodDistances)
-            return 0
+        # Observations to be noted:
+        # 1. Pacman needs to eat the nearest food.
+        # 2. Go away from the ghost.
+        # 3. Go to a scared ghost to eat it.
+        # 4. Shouldn't stop.
+        # This way we can maximize the score.
 
-        def get_min_ghost_distance(newPos, newGhostStates):
-            allGhostDistances = [manhattanDistance(newPos, ghostState.getPosition()) for ghostState in newGhostStates]
-            return min(allGhostDistances)
 
-        def is_ghost_scared(newScaredTimes):
-            return min(newScaredTimes) > 0
+        # Move towards the closest food
+        food_reward = 0
+        min_food_distance = float('inf')
+        food_list = newFood.asList()
+        if food_list:
+            all_food_distances = [manhattanDistance(newPos, food) for food in food_list]
+            min_food_distance = min(all_food_distances)
+        food_reward += 1 / (min_food_distance + 1)
 
-        def get_evaluation_components(isGhostScared):
-            w1, w2, w3 = 1.0, 2.0, 0.0
-            if isGhostScared:
-                w1, w2, w3 = 1.0, 0.0, 2.0  # If ghosts are scared, prioritize eating them over avoiding them
-            return w1, w2, w3
+        # Avoid close ghosts and chase scared ghosts
+        ghost_penalty = 0
+        min_ghost_distance = float('inf')
+        for ghostState in newGhostStates:
+            min_ghost_distance = min(min_ghost_distance, manhattanDistance(newPos, ghostState.getPosition()))
 
-        minFoodDistance = get_min_food_distance(newPos, newFood)
-        minGhostDistance = get_min_ghost_distance(newPos, newGhostStates)
+        # scaling the ghost_penalty to twice so that it prioritize the ghost
+        if min(newScaredTimes) > 0:
+            ghost_penalty = ghost_penalty + 2 / (min_ghost_distance + 1)
+        else:
+            ghost_penalty = ghost_penalty - 2 / (min_ghost_distance + 1)
 
+        # Penalize for stopping (return -infinity as stopping shouldn't be an option as a state)
         if action == Directions.STOP:
-            return -float('inf')  # Discourage STOP action
+            return -float('inf')
 
-        isGhostScared = is_ghost_scared(newScaredTimes)
-        w1, w2, w3 = get_evaluation_components(isGhostScared)
-
-        # Combine the components to form the evaluation function
-        score = successorGameState.getScore()
-        evalFunction = (
-                score +
-                w1 * (1.0 / (minFoodDistance + 1)) -
-                w2 * (1.0 / (minGhostDistance + 1)) +
-                w3 * (1.0 / (minGhostDistance + 1))
-        )
-        return evalFunction
+        # Combine rewards and penalties for the final score
+        return successorGameState.getScore() + food_reward + ghost_penalty
 
 def scoreEvaluationFunction(currentGameState: GameState):
     """
@@ -174,38 +171,47 @@ class MinimaxAgent(MultiAgentSearchAgent):
         """
         "*** YOUR CODE HERE ***"
 
-        def is_terminal_state(gameState, depth):
-            return gameState.isWin() or gameState.isLose() or depth == self.depth
+        # Observations:
+        # 1. maximizes a pacman outcome thinking ghost play optimally.
+        # 2. max_value: best move for the pacman
+        # 3. min_value: best move for the ghost.
+        def MINIMAX_DECISION(state):
+            actions = state.getLegalActions(0)
+            best_value = float("-inf")
+            best_action = Directions.STOP
 
-        def get_scores(agentIndex, depth, gameState):
-            legalActions = gameState.getLegalActions(agentIndex)
-            scores = []
-            for action in legalActions:
-                successorGameState = gameState.generateSuccessor(agentIndex, action)
-                nextAgent, nextDepth = get_next_agent_and_depth(agentIndex, depth, gameState)
-                score = minimax(nextAgent, nextDepth, successorGameState)[0]
-                scores.append((score, action))
-            return scores
+            for action in actions:
+                value = MIN_VALUE(state.generateSuccessor(0, action), 1, self.depth)
+                if value > best_value:
+                    best_value = value
+                    best_action = action
 
-        def get_next_agent_and_depth(agentIndex, depth, gameState):
-            if agentIndex == gameState.getNumAgents() - 1:
-                return 0, depth + 1
-            else:
-                return agentIndex + 1, depth
+            return best_action
 
-        def minimax(agentIndex, depth, gameState):
-            if is_terminal_state(gameState, depth):
-                return self.evaluationFunction(gameState), None
+        def MAX_VALUE(state, depth):
+            if state.isWin() or state.isLose() or depth == 0:
+                return self.evaluationFunction(state)
 
-            scores = get_scores(agentIndex, depth, gameState)
+            v = float("-inf")
+            for a in state.getLegalActions(0):
+                v = max(v, MIN_VALUE(state.generateSuccessor(0, a), 1, depth))
+            return v
 
-            if not scores:
-                return self.evaluationFunction(gameState), None
+        def MIN_VALUE(state, agent_index, depth):
+            if state.isWin() or state.isLose() or depth == 0:
+                return self.evaluationFunction(state)
 
-            return max(scores) if agentIndex == 0 else min(scores)
+            v = float("inf")
+            for a in state.getLegalActions(agent_index):
+                # checking if this is the last agent
+                if agent_index == state.getNumAgents() - 1:
+                    v = min(v, MAX_VALUE(state.generateSuccessor(agent_index, a), depth - 1))
+                else:
+                    v = min(v, MIN_VALUE(state.generateSuccessor(agent_index, a), agent_index + 1, depth))
+            return v
 
-        action = minimax(0, 0, gameState)[1]
-        return action
+        return MINIMAX_DECISION(gameState)
+
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -218,49 +224,59 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         """
         "*** YOUR CODE HERE ***"
 
-        def is_terminal_state(gameState, depth):
-            return gameState.isWin() or gameState.isLose() or depth == self.depth
+        # Observations:
+        # 1. After each action evaluation, the alpha and beta values are updated
+        # 2. Pruned when current values cross predetermined alpha or beta bounds
 
-        def get_successor(gameState, agentIndex, action):
-            return gameState.generateSuccessor(agentIndex, action)
 
-        def get_max_value(gameState, depth, alpha, beta):
-            if is_terminal_state(gameState, depth):
-                return self.evaluationFunction(gameState), None
+        def ALPHA_BETA_SEARCH(state):
+            alpha = float("-inf")
+            beta = float("inf")
+            best_value = float("-inf")
+            best_action = Directions.STOP
 
-            v = float('-inf')
-            best_action = None
-            for action in gameState.getLegalActions(0):  # 0 is always Pacman
-                successor = get_successor(gameState, 0, action)
-                score = get_min_value(successor, depth, 1, alpha, beta)[0]
-                if score > v:
-                    v, best_action = score, action
-                alpha = max(alpha, v)
-                if v > beta:
-                    break  # Prune
-            return v, best_action
+            for action in state.getLegalActions(0):
+                value = max(best_value, MIN_VALUE(state.generateSuccessor(0, action), 1, self.depth, alpha, beta))
+                if value > best_value:
+                    best_value = value
+                    best_action = action
 
-        def get_min_value(gameState, depth, agentIndex, alpha, beta):
-            if is_terminal_state(gameState, depth):
-                return self.evaluationFunction(gameState), None
+                alpha = max(alpha, value)  # Update alpha with the best value found so far
+                if value > beta:  # Prune the branch
+                    return value
+            return best_action
 
-            v = float('inf')
-            best_action = None
-            for action in gameState.getLegalActions(agentIndex):
-                successor = get_successor(gameState, agentIndex, action)
-                if agentIndex == gameState.getNumAgents() - 1:  # If last ghost
-                    score = get_max_value(successor, depth + 1, alpha, beta)[0]
-                else:  # If not last ghost
-                    score = get_min_value(successor, depth, agentIndex + 1, alpha, beta)[0]
-                if score < v:
-                    v, best_action = score, action
-                beta = min(beta, v)
-                if v < alpha:
-                    break  # Prune
-            return v, best_action
+        def MAX_VALUE(state, depth, alpha, beta):
+            if state.isWin() or state.isLose() or depth == 0:
+                return self.evaluationFunction(state)
 
-        action = get_max_value(gameState, 0, float('-inf'), float('inf'))[1]
-        return action
+            v = float("-inf")
+            for a in state.getLegalActions(0):
+                v = max(v, MIN_VALUE(state.generateSuccessor(0, a), 1, depth, alpha, beta))
+                if v > beta:  # Prune the branch
+                    return v
+                alpha = max(alpha, v)  # Update alpha with the best value found so far
+
+            return v
+
+        def MIN_VALUE(state, agent_index, depth, alpha, beta):
+            if state.isWin() or state.isLose() or depth == 0:
+                return self.evaluationFunction(state)
+
+            v = float("inf")
+            for a in state.getLegalActions(agent_index):
+                if agent_index == state.getNumAgents() - 1:
+                    v = min(v, MAX_VALUE(state.generateSuccessor(agent_index, a), depth - 1, alpha, beta))
+                else:
+                    v = min(v, MIN_VALUE(state.generateSuccessor(agent_index, a), agent_index + 1, depth, alpha, beta))
+                if v < alpha:  # Prune the branch
+                    return v
+                beta = min(beta, v)  # Update beta with the best value found so far
+
+            return v
+
+        return ALPHA_BETA_SEARCH(gameState)
+
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
@@ -275,41 +291,52 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         "*** YOUR CODE HERE ***"
+        # Observations:
+        # 1. Here we have pacman maximizing strategy and the ghosts' probabilistic behavior.
+        # 2. Ghost actions are evaluated based on a uniform probability distribution.
+        # 3. Optimal move is determined by the action leading to the highest estimated value.
 
-        def is_terminal_state(gameState, depth):
-            return gameState.isWin() or gameState.isLose() or depth == self.depth
+        def value(state, agent_index, depth):
+            # Base case
+            if state.isWin() or state.isLose() or depth == 0:
+                return self.evaluationFunction(state)
 
-        def get_max_value(gameState, depth):
-            if is_terminal_state(gameState, depth):
-                return self.evaluationFunction(gameState), None
+            # Pacman
+            if agent_index == 0:
+                return max_value(state, depth)
+            # Ghosts
+            else:
+                return exp_value(state, agent_index, depth)
 
-            v = float('-inf')
-            best_action = None
-            for action in gameState.getLegalActions(0):  # 0 is always Pacman
-                successor = gameState.generateSuccessor(0, action)
-                score = get_exp_value(successor, depth, 1)[0]
-                if score > v:
-                    v, best_action = score, action
-            return v, best_action
+        def max_value(state, depth):
+            v = float("-inf")
+            for action in state.getLegalActions(0):
+                v = max(v, value(state.generateSuccessor(0, action), 1, depth))
+            return v
 
-        def get_exp_value(gameState, depth, agentIndex):
-            if is_terminal_state(gameState, depth):
-                return self.evaluationFunction(gameState), None
-
+        def exp_value(state, agent_index, depth):
             v = 0
-            best_action = None
-            num_actions = len(gameState.getLegalActions(agentIndex))
-            for action in gameState.getLegalActions(agentIndex):
-                successor = gameState.generateSuccessor(agentIndex, action)
-                if agentIndex == gameState.getNumAgents() - 1:  # If last ghost
-                    score = get_max_value(successor, depth + 1)[0]
-                else:  # If not last ghost
-                    score = get_exp_value(successor, depth, agentIndex + 1)[0]
-                v += score / num_actions
-            return v, best_action
+            legal_actions = state.getLegalActions(agent_index)
+            prob = 1.0 / len(legal_actions)
+            for action in legal_actions:
+                if agent_index == gameState.getNumAgents() - 1:
+                    next_depth = depth - 1
+                else:
+                    next_depth = depth
+                v += prob * value(state.generateSuccessor(agent_index, action),
+                                  (agent_index + 1) % gameState.getNumAgents(), next_depth)
+            return v
 
-        action = get_max_value(gameState, 0)[1]
-        return action
+        best_value = float("-inf")
+        best_action = Directions.STOP
+        for action in gameState.getLegalActions():
+            new_value = value(gameState.generateSuccessor(0, action), 1, self.depth)
+            if new_value > best_value:
+                best_value = new_value
+                best_action = action
+
+        return best_action
+
 
 def betterEvaluationFunction(currentGameState: GameState):
     """
@@ -320,66 +347,47 @@ def betterEvaluationFunction(currentGameState: GameState):
     """
     "*** YOUR CODE HERE ***"
 
-    food = currentGameState.getFood().asList()
-    ghosts = currentGameState.getGhostStates()
-    pacmanPosition = currentGameState.getPacmanPosition()
-    activeGhosts = []
-    scaredGhosts = []
-    totalCapsules = len(currentGameState.getCapsules())
-    totalFood = len(food)
-    myEval = 0
+    # Observations to be noted:
+    # 1. Pacman needs to eat the nearest food.
+    # 2. Go away from the ghost.
+    # 3. Go to a scared ghost to eat it.
+    # 4. Rewarded when completing the pallets.
+    # This way we can maximize the score.
 
-    # Classify ghosts as active or scared
-    for ghost in ghosts:
-        scaredGhosts.append(ghost) if ghost.scaredTimer else activeGhosts.append(ghost)
+    # Useful information you can extract from a GameState (pacman.py)
+    pos = currentGameState.getPacmanPosition()
+    food = currentGameState.getFood()
+    ghost_states = currentGameState.getGhostStates()
+    scared_times = [ghostState.scaredTimer for ghostState in ghost_states]
+    num_of_capsules = len(currentGameState.getCapsules())
 
-    # Score weight: beneficial but not primary focus
-    myEval += 1.5 * currentGameState.getScore()
+    food_reward = 0
+    min_food_distance = float('inf')
+    food_list = food.asList()
+    if food_list:
+        all_food_distances = [manhattanDistance(pos, food) for food in food_list]
+        min_food_distance = min(all_food_distances)
+    food_reward += 1 / (min_food_distance + 1)
 
-    # Food weight: incentivize reducing food count
-    myEval += -10 * totalFood
+    # Avoid close ghosts and chase scared ghosts
+    ghost_penalty = 0
+    min_ghost_distance = float('inf')
+    for ghostState in ghost_states:
+        min_ghost_distance = min(min_ghost_distance, manhattanDistance(pos, ghostState.getPosition()))
 
-    # Capsule weight: incentivize capsule consumption
-    myEval += -20 * totalCapsules
+    # scaling the ghost_penalty to twice so that it prioritize the ghost
+    if min(scared_times) > 0:
+        ghost_penalty = ghost_penalty + 2 / (min_ghost_distance + 1)
+    else:
+        ghost_penalty = ghost_penalty - 2 / (min_ghost_distance + 1)
 
-    foodDistances = []
-    activeGhostsDistances = []
-    scaredGhostsDistances = []
+    capsule_reward = 0
+    # print(num_of_capsules)
+    capsule_reward = capsule_reward + 2 / (num_of_capsules + 1)
 
-    # Calculate distances from pacman to food and ghosts
-    for unit in food:
-        foodDistances.append(manhattanDistance(pacmanPosition, unit))
-    for unit in activeGhosts:
-        scaredGhostsDistances.append(manhattanDistance(pacmanPosition, unit.getPosition()))
-    for unit in scaredGhosts:
-        scaredGhostsDistances.append(manhattanDistance(pacmanPosition, unit.getPosition()))
+    # Combine rewards and penalties for the final score
+    return currentGameState.getScore() + food_reward + ghost_penalty + capsule_reward
 
-    # Evaluate based on proximity to food
-    for unit in foodDistances:
-        if unit < 3:
-            myEval += -1 * unit  # Highly prioritize close food
-        elif unit < 7:
-            myEval += -0.5 * unit  # Somewhat prioritize mid-distance food
-        else:
-            myEval += -0.2 * unit  # Minimally prioritize far food
-
-    # Evaluate based on proximity to scared ghosts: prioritize consumption
-    for unit in scaredGhostsDistances:
-        if unit < 3:
-            myEval += -20 * unit  # Highly prioritize close scared ghosts
-        else:
-            myEval += -10 * unit  # Prioritize all scared ghosts, but less so for farther ones
-
-    # Evaluate based on proximity to active ghosts: prioritize avoidance
-    for unit in activeGhostsDistances:
-        if unit < 3:
-            myEval += 3 * unit  # Strongly prioritize avoiding very close active ghosts
-        elif unit < 7:
-            myEval += 2 * unit  # Still prioritize avoiding mid-distance active ghosts
-        else:
-            myEval += 0.5 * unit  # Slightly prioritize avoiding far active ghosts
-
-    return myEval
 
 
 # Abbreviation
