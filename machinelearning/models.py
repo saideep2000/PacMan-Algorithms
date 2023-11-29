@@ -168,7 +168,7 @@ class RegressionModel(object):
             a = a + 1
 
     def calculate_average(self, loss):
-        self.loss_recorded.append(nn.as_scalar(loss))
+        self.loss_recorded.append(loss)
         average_training_loss = sum(self.loss_recorded) / self.total_recorded_instances
         return average_training_loss
     def update_weights_while_iterating(self, dataset, track_loss):
@@ -188,10 +188,9 @@ class RegressionModel(object):
         """
         "*** YOUR CODE HERE ***"
         average_training_loss = 1
-        square_loss_computed = 0
         track_loss = [0]
         while average_training_loss > 0.02:
-            square_loss_computed = square_loss_computed + self.update_weights_while_iterating(dataset, track_loss)
+            square_loss_computed = nn.as_scalar(self.update_weights_while_iterating(dataset, track_loss))
             self.total_recorded_instances = self.total_recorded_instances + 1
             average_training_loss = self.calculate_average(square_loss_computed)
 
