@@ -47,7 +47,7 @@ class PerceptronModel(object):
         else:
             return -1
 
-    def update_for_any_mistakes(self, dataset):
+    def update_for_any_mismatch(self, dataset):
         for x, y in dataset.iterate_once(1):
             multiplier = nn.as_scalar(y)
             if self.get_prediction(x) != multiplier:
@@ -60,9 +60,9 @@ class PerceptronModel(object):
         Train the perceptron until convergence.
         """
         "*** YOUR CODE HERE ***"
-        mistakes = True
-        while mistakes:
-            mistakes = self.update_for_any_mistakes(dataset)
+        mismatch = True
+        while mismatch:
+            mismatch = self.update_for_any_mismatch(dataset)
 
 class RegressionModel(object):
     """
