@@ -40,6 +40,13 @@ Embark on this journey through the maze of AI, exploring search algorithms, mult
 
 ### Happy Coding!
 
+
+python3 autograder.py --check-dependencies
+
+python3 autograder.py -q q2
+
+python3 submission_autograder.py
+
 ---
 
 **Note:** Click on the respective module headings for detailed explanations, instructions, and tasks. Always ensure to adhere to academic integrity and utilize this repository for learning and practice.

@@ -173,7 +173,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
 
         # Observations:
         # 1. maximizes a pacman outcome thinking ghost play optimally.
-        # 2. max_value: best move for the pacman
+        # 2. max_value: best move for the pacman.
         # 3. min_value: best move for the ghost.
         def MINIMAX_DECISION(state):
             actions = state.getLegalActions(0)
